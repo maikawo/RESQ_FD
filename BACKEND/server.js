@@ -1,28 +1,36 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const dotenv = require('dotenv');
 const cors = require('cors');
-const cloudinary = require('cloudinary').v2;
-require('dotenv').config();
+
+const connectDB = require('./config/db');
+const configureCloudinary = require('./config/cloudinary');
+const reportRoutes = require('./routes/report.route');
+
+// Load environment variables from .env file
+dotenv.config();
+
+// Connect to MongoDB
+connectDB();
+
+// Configure Cloudinary
+configureCloudinary();
 
 const app = express();
-const port = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(cors());
+// Middleware
+app.use(cors()); // Allow cross-origin requests
+app.use(express.json()); // To parse JSON bodies
+app.use(express.urlencoded({ extended: true })); // To parse URL-encoded bodies
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB Atlas!'))
-  .catch(err => console.error('Could not connect to MongoDB Atlas:', err));
+// --- API Routes ---
+app.use('/api/reports', reportRoutes);
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+app.get('/', (req, res) => {
+  res.send('Emergency App API is running...');
 });
 
-const reportRoutes = require('./routes/reportRoutes');
-app.use('/reports', reportRoutes);
+const PORT = process.env.PORT || 5000;
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
