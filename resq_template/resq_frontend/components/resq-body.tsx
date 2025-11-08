@@ -14,9 +14,20 @@ interface User {
   _id: string; // Changed from id to _id to match MongoDB
   name: string;
   email: string;
+  password?: string; // Add password field as optional
 }
 
-const API_URL = "http://localhost:5000/api/users";
+// Update API configuration
+const axiosInstance = axios.create({
+  timeout: 10000, // 10 seconds
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Use your actual machine's IP address here
+const API_URL = "http://127.0.0.1:5000/api/users"; // For Android Emulator
+// const API_URL = "http://localhost:5000/api/users"; // For iOS Simulator
 
 const ResqBody: React.FC = () => {
   const [users, setUsers] = useState<User[]>(
@@ -27,6 +38,9 @@ const ResqBody: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -42,15 +56,28 @@ const ResqBody: React.FC = () => {
   };
 
   const handleAddUser = async () => {
-    if (name && email) {
+    if (name && email && password) {
+      setIsLoading(true);
       try {
-        const response = await axios.post(API_URL, { name, email });
+        const response = await axiosInstance.post(API_URL, {
+          name,
+          email,
+          password,
+        });
         setUsers([...users, response.data]);
         setName("");
         setEmail("");
+        setPassword("");
         setModalVisible(false);
-      } catch (error) {
-        console.error("Error adding user:", error);
+      } catch (error: any) {
+        const message =
+          error.response?.data?.message ||
+          error.message ||
+          "Network error. Please check your connection.";
+        setErrorMessage(message);
+        console.error("Error details:", error);
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -58,16 +85,21 @@ const ResqBody: React.FC = () => {
   const handleUpdateUser = async () => {
     if (selectedUser && name && email) {
       try {
-        const response = await axios.put(`${API_URL}/${selectedUser._id}`, {
-          name,
-          email,
-        });
+        const userData = { name, email };
+        if (password) {
+          userData.password = password;
+        }
+        const response = await axios.put(
+          `${API_URL}/${selectedUser._id}`,
+          userData
+        );
         const updatedUsers = users.map((user) =>
           user._id === selectedUser._id ? response.data : user
         );
         setUsers(updatedUsers);
         setName("");
         setEmail("");
+        setPassword("");
         setSelectedUser(null);
         setModalVisible(false);
       } catch (error) {
@@ -90,10 +122,12 @@ const ResqBody: React.FC = () => {
       setSelectedUser(user);
       setName(user.name);
       setEmail(user.email);
+      setPassword("");
     } else {
       setSelectedUser(null);
       setName("");
       setEmail("");
+      setPassword("");
     }
     setModalVisible(true);
   };
@@ -123,6 +157,9 @@ const ResqBody: React.FC = () => {
 
   return (
     <View style={styles.body}>
+      {errorMessage ? (
+        <Text style={styles.errorMessage}>{errorMessage}</Text>
+      ) : null}
       <TouchableOpacity
         style={[styles.button, styles.addButton]}
         onPress={() => openModal()}
@@ -158,12 +195,26 @@ const ResqBody: React.FC = () => {
               value={email}
               onChangeText={setEmail}
             />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={[styles.button, styles.saveButton]}
+                style={[
+                  styles.button,
+                  styles.saveButton,
+                  isLoading && styles.disabledButton,
+                ]}
                 onPress={selectedUser ? handleUpdateUser : handleAddUser}
+                disabled={isLoading}
               >
-                <Text style={styles.buttonText}>Save</Text>
+                <Text style={styles.buttonText}>
+                  {isLoading ? "Saving..." : "Save"}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
@@ -267,6 +318,14 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: "#6c757d",
+  },
+  errorMessage: {
+    color: "#dc3545",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
 });
 
